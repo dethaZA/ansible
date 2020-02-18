@@ -2,7 +2,6 @@
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import (absolute_import, division, print_function)
-from copy import deepcopy
 
 __metaclass__ = type
 
@@ -120,6 +119,7 @@ import uuid
 from sys import version as python_version
 from threading import Thread
 from itertools import chain
+from copy import deepcopy
 
 from ansible.plugins.inventory import BaseInventoryPlugin, Constructable, Cacheable
 from ansible.module_utils.ansible_release import __version__ as ansible_version
@@ -348,6 +348,10 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
             if "interface" in address and address["interface"]["id"] == id:
                 temp = deepcopy(address)
                 temp.pop("interface", None)
+                addr = ip_interface(address["address"])
+                temp["cidr"] = str(addr.with_prefixlen)
+                temp["address"] = str(addr.ip)
+                temp["netmask"] = str(addr.netmask)
                 addresses.append(deepcopy(temp))
         return addresses
 
@@ -536,3 +540,4 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
         self.group_by = self.get_option("group_by")
         self.query_filters = self.get_option("query_filters")
         self.main()
+
