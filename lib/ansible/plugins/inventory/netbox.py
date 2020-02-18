@@ -2,6 +2,7 @@
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import (absolute_import, division, print_function)
+from copy import deepcopy
 
 __metaclass__ = type
 
@@ -157,6 +158,7 @@ ALLOWED_DEVICE_QUERY_PARAMETERS = (
     "tenant",
     "tenant_id",
     "virtual_chassis_id",
+    "interface",
 )
 
 
@@ -240,7 +242,9 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
             "platforms": self.extract_platform,
             "device_types": self.extract_device_type,
             "config_context": self.extract_config_context,
-            "manufacturers": self.extract_manufacturer
+            "manufacturers": self.extract_manufacturer,
+            "interfaces": self.extract_interfaces,
+            "addresses": self.extract_addresses,
         }
 
     def extract_disk(self, host):
@@ -327,6 +331,26 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
     def extract_tags(self, host):
         return host["tags"]
 
+    def extract_interfaces(self, host):
+        interfaces = dict()
+        for interface in self.interfaces_lookup.values():
+            if interface["device"]["id"] == host["id"]:
+                temp = deepcopy(interface)
+                temp.pop("device", None)
+                temp["addresses"] = self.extract_addresses(interface)
+                interfaces[interface["name"]] = temp
+        return interfaces
+
+    def extract_addresses(self, interface):
+        addresses = []
+        id = interface["id"]
+        for address in self.addresses_lookup.values():
+            if "interface" in address and address["interface"]["id"] == id:
+                temp = deepcopy(address)
+                temp.pop("interface", None)
+                addresses.append(deepcopy(temp))
+        return addresses
+
     def refresh_platforms_lookup(self):
         url = self.api_endpoint + "/api/dcim/platforms/?limit=0"
         platforms = self.get_resource_list(api_url=url)
@@ -367,6 +391,16 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
         manufacturers = self.get_resource_list(api_url=url)
         self.manufacturers_lookup = dict((manufacturer["id"], manufacturer["name"]) for manufacturer in manufacturers)
 
+    def refresh_interfaces_lookup(self):
+        url = self.api_endpoint + "/api/dcim/interfaces/?limit=0"
+        interfaces = self.get_resource_list(api_url=url)
+        self.interfaces_lookup = dict((interface["id"], interface) for interface in interfaces)
+
+    def refresh_addresses_lookup(self):
+        url = self.api_endpoint + "/api/ipam/ip-addresses/?limit=0"
+        addresses = self.get_resource_list(api_url=url)
+        self.addresses_lookup = dict((address["id"], address) for address in addresses if address["interface"])
+
     def refresh_lookups(self):
         lookup_processes = (
             self.refresh_sites_lookup,
@@ -377,6 +411,8 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
             self.refresh_platforms_lookup,
             self.refresh_device_types_lookup,
             self.refresh_manufacturers_lookup,
+            self.refresh_interfaces_lookup(),
+            self.refresh_addresses_lookup,
         )
 
         thread_list = []
@@ -452,6 +488,9 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
 
         if self.extract_primary_ip6(host):
             self.inventory.set_variable(hostname, "primary_ip6", self.extract_primary_ip6(host=host))
+
+        if self.extract_interfaces(host):
+            self.inventory.set_variable(hostname, "interfaces", self.extract_interfaces(host=host))
 
     def main(self):
         self.refresh_lookups()
