@@ -333,8 +333,14 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
 
     def extract_interfaces(self, host):
         interfaces = dict()
-        for interface in self.interfaces_lookup.values():
-            if interface["device"]["id"] == host["id"]:
+        if 'vcpus' in host.keys():
+             allinterfaces = self.vm_interfaces_lookup.values()
+             tag = 'virtual_machine'
+        else:
+             allinterfaces = self.interfaces_lookup.values()
+             tag = 'device'
+        for interface in allinterfaces:
+            if interface[tag]["id"] == host["id"]:
                 temp = deepcopy(interface)
                 temp.pop("device", None)
                 temp["addresses"] = self.extract_addresses(interface)
@@ -400,6 +406,11 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
         interfaces = self.get_resource_list(api_url=url)
         self.interfaces_lookup = dict((interface["id"], interface) for interface in interfaces)
 
+    def refresh_vm_interfaces_lookup(self):
+        url = self.api_endpoint + "/api/virtualization/interfaces/?limit=0"
+        interfaces = self.get_resource_list(api_url=url)
+        self.vm_interfaces_lookup = dict((interface["id"], interface) for interface in interfaces)
+
     def refresh_addresses_lookup(self):
         url = self.api_endpoint + "/api/ipam/ip-addresses/?limit=0"
         addresses = self.get_resource_list(api_url=url)
@@ -416,6 +427,7 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
             self.refresh_device_types_lookup,
             self.refresh_manufacturers_lookup,
             self.refresh_interfaces_lookup(),
+            self.refresh_vm_interfaces_lookup(),
             self.refresh_addresses_lookup,
         )
 
@@ -492,9 +504,6 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
 
         if self.extract_primary_ip6(host):
             self.inventory.set_variable(hostname, "primary_ip6", self.extract_primary_ip6(host=host))
-
-        if self.extract_interfaces(host):
-            self.inventory.set_variable(hostname, "interfaces", self.extract_interfaces(host=host))
 
     def main(self):
         self.refresh_lookups()
