@@ -250,6 +250,7 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
             "manufacturers": self.extract_manufacturer,
             "interfaces": self.extract_interfaces,
             "addresses": self.extract_addresses,
+            "custom_fields": self.extract_custom_fields,
         }
 
     def extract_disk(self, host):
@@ -367,6 +368,11 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
                 temp["netmask"] = str(addr.netmask)
                 addresses.append(deepcopy(temp))
         return addresses
+
+    def extract_custom_fields(self, host):
+      if 'custom_fields' in host.keys():
+         return host['custom_fields']
+      return {}
 
     def refresh_platforms_lookup(self):
         url = self.api_endpoint + "/api/dcim/platforms/?limit=0"
