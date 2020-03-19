@@ -73,6 +73,10 @@ DOCUMENTATION = '''
             description: List of custom ansible host vars to create from the device object fetched from NetBox
             default: {}
             type: dict
+    environment:
+        ANSIBLE_NETBOX_USE_IPV6:
+            use the IPV4 address as the primary address if both IPV4 and IPV6
+            are present
 '''
 
 EXAMPLES = '''
@@ -116,6 +120,7 @@ compose:
 
 import json
 import uuid
+import os
 from sys import version as python_version
 from threading import Thread
 from itertools import chain
@@ -308,6 +313,8 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
             return
 
     def extract_primary_ip(self, host):
+        if self.use_ipv4:
+            return self.extract_primary_ip4(host)
         try:
             address = host["primary_ip"]["address"]
             return str(ip_interface(address).ip)
@@ -544,6 +551,7 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
             'User-Agent': "ansible %s Python %s" % (ansible_version, python_version.split(' ')[0]),
             'Content-type': 'application/json'
         }
+        self.use_ipv4 = 'ANSIBLE_NETBOX_USE_IPV4' in os.environ.keys() and os.environ['ANSIBLE_NETBOX_USE_IPV4']
 
         # Filter and group_by options
         self.group_by = self.get_option("group_by")
