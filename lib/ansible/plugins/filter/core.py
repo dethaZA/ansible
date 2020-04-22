@@ -80,12 +80,7 @@ def to_json(a, *args, **kw):
 
 def to_nice_json(a, indent=4, sort_keys=True, *args, **kw):
     '''Make verbose, human readable JSON'''
-    try:
-        return json.dumps(a, indent=indent, sort_keys=sort_keys, separators=(',', ': '), cls=AnsibleJSONEncoder, *args, **kw)
-    except Exception as e:
-        # Fallback to the to_json filter
-        display.warning(u'Unable to convert data using to_nice_json, falling back to to_json: %s' % to_text(e))
-        return to_json(a, *args, **kw)
+    return to_json(a, indent=indent, sort_keys=sort_keys, separators=(',', ': '), *args, **kw)
 
 
 def to_bool(a):
@@ -123,15 +118,16 @@ def fileglob(pathname):
     return [g for g in glob.glob(pathname) if os.path.isfile(g)]
 
 
-def regex_replace(value='', pattern='', replacement='', ignorecase=False):
+def regex_replace(value='', pattern='', replacement='', ignorecase=False, multiline=False):
     ''' Perform a `re.sub` returning a string '''
 
     value = to_text(value, errors='surrogate_or_strict', nonstring='simplerepr')
 
+    flags = 0
     if ignorecase:
-        flags = re.I
-    else:
-        flags = 0
+        flags |= re.I
+    if multiline:
+        flags |= re.M
     _re = re.compile(pattern, flags=flags)
     return _re.sub(replacement, value)
 

@@ -369,13 +369,12 @@ def get_submodule_update_params(module, git_path, cwd):
     return params
 
 
-def write_ssh_wrapper():
-    module_dir = get_module_path()
+def write_ssh_wrapper(module_tmpdir):
     try:
         # make sure we have full permission to the module_dir, which
         # may not be the case if we're sudo'ing to a non-root user
-        if os.access(module_dir, os.W_OK | os.R_OK | os.X_OK):
-            fd, wrapper_path = tempfile.mkstemp(prefix=module_dir + '/')
+        if os.access(module_tmpdir, os.W_OK | os.R_OK | os.X_OK):
+            fd, wrapper_path = tempfile.mkstemp(prefix=module_tmpdir + '/')
         else:
             raise OSError
     except (IOError, OSError):
@@ -750,7 +749,7 @@ def set_remote_url(git_path, module, repo, dest, remote):
     return remote_url is not None
 
 
-def fetch(git_path, module, repo, dest, version, remote, depth, bare, refspec, git_version_used):
+def fetch(git_path, module, repo, dest, version, remote, depth, bare, refspec, git_version_used, force=False):
     ''' updates repo from remote sources '''
     set_remote_url(git_path, module, repo, dest, remote)
     commands = []
@@ -798,6 +797,10 @@ def fetch(git_path, module, repo, dest, version, remote, depth, bare, refspec, g
                 refspecs = ['+refs/tags/*:refs/tags/*']
         if refspec:
             refspecs.append(refspec)
+
+    if force:
+        fetch_cmd.append('--force')
+
     fetch_cmd.extend([remote])
 
     commands.append((fetch_str, fetch_cmd + refspecs))
@@ -1153,7 +1156,7 @@ def main():
     # create a wrapper script and export
     # GIT_SSH=<path> as an environment variable
     # for git to use the wrapper script
-    ssh_wrapper = write_ssh_wrapper()
+    ssh_wrapper = write_ssh_wrapper(module.tmpdir)
     set_git_ssh(ssh_wrapper, key_file, ssh_opts)
     module.add_cleanup_file(path=ssh_wrapper)
 
@@ -1231,7 +1234,7 @@ def main():
                     result['diff'] = diff
             module.exit_json(**result)
         else:
-            fetch(git_path, module, repo, dest, version, remote, depth, bare, refspec, git_version_used)
+            fetch(git_path, module, repo, dest, version, remote, depth, bare, refspec, git_version_used, force=force)
 
         result['after'] = get_version(module, git_path, dest)
 

@@ -5,6 +5,10 @@
 Ansible 2.10 Porting Guide
 **************************
 
+.. warning::
+
+	Links on this page may not point to the most recent versions of modules. In preparation for the release of 2.10, many plugins and modules have migrated to Collections on  `Ansible Galaxy <https://galaxy.ansible.com>`_. For the current development status of Collections and FAQ see `Ansible Collections Community Guide <https://github.com/ansible-collections/general/blob/master/README.rst>`_. We expect the 2.10 Porting Guide to change frequently up to the 2.10 release. Follow the conversations about collections on our various :ref:`communication` channels for the latest information on the status of the ``devel`` branch.
+
 This section discusses the behavioral changes between Ansible 2.9 and Ansible 2.10.
 
 It is intended to assist in updating your playbooks, plugins and other parts of your Ansible infrastructure so they will work with this version of Ansible.
@@ -39,6 +43,9 @@ Deprecated
 Modules
 =======
 
+.. warning::
+
+	Links on this page may not point to the most recent versions of modules. We will update them when we can.
 
 Modules removed
 ---------------
@@ -53,9 +60,8 @@ Deprecation notices
 
 The following modules will be removed in Ansible 2.14. Please update your playbooks accordingly.
 
-* ldap_attr use :ref:`ldap_attrs <ldap_attrs_module>` instead.
-* vyos_static_route use :ref:`vyos_static_routes <vyos_static_routes_module>` instead.
-
+* ldap_attr use ldap_attrs instead.
+* vyos_static_route use vyos_static_routes instead.
 
 The following functionality will be removed in Ansible 2.14. Please update update your playbooks accordingly.
 
@@ -71,6 +77,7 @@ The following functionality will be removed in Ansible 2.14. Please update updat
 * :ref:`ec2_key <ec2_key_module>`: the ``wait`` option will be removed. It has had no effect since Ansible 2.5.
 * :ref:`ec2_key <ec2_key_module>`: the ``wait_timeout`` option will be removed. It has had no effect since Ansible 2.5.
 * :ref:`ec2_lc <ec2_lc_module>`: the ``associate_public_ip_address`` option will be removed. It has always been ignored by the module.
+* :ref:`ec2_tag <ec2_tag_module>`: Support for ``list`` as a state has been deprecated.  The ``ec2_tag_info`` can be used to fetch the tags on an EC2 resource.
 * :ref:`iam_policy <iam_policy_module>`: the ``policy_document`` option will be removed. To maintain the existing behavior use the ``policy_json`` option and read the file with the ``lookup`` plugin.
 * :ref:`redfish_config <redfish_config_module>`: the ``bios_attribute_name`` and ``bios_attribute_value`` options will be removed. To maintain the existing behavior use the ``bios_attributes`` option instead.
 * :ref:`clc_aa_policy <clc_aa_policy_module>`: the ``wait`` parameter will be removed. It has always been ignored by the module.
@@ -94,7 +101,7 @@ The following functionality will change in Ansible 2.14. Please update update yo
 
 The following modules will be removed in Ansible 2.14. Please update your playbooks accordingly.
 
-* ``vmware_dns_config`` use :ref:`vmware_host_dns <vmware_host_dns_module>` instead.
+* ``vmware_dns_config`` use vmware_host_dns instead.
 
 
 Noteworthy module changes

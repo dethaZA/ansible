@@ -120,6 +120,71 @@ f_ansible_galaxy_status \
 
     [[ $(grep -c '^- test-role' out.txt ) -eq 2 ]]
 
+# Galaxy role test case
+#
+# Test listing a specific role that is not in the first path in ANSIBLE_ROLES_PATH.
+# https://github.com/ansible/ansible/issues/60167#issuecomment-585460706
+
+f_ansible_galaxy_status \
+    "list specific role not in the first path in ANSIBLE_ROLES_PATHS"
+
+role_testdir=$(mktemp -d)
+pushd "${role_testdir}"
+
+    mkdir testroles
+    ansible-galaxy role init --init-path ./local-roles quark
+    ANSIBLE_ROLES_PATH=./local-roles:${HOME}/.ansible/roles ansible-galaxy role list quark | tee out.txt
+
+    [[ $(grep -c 'not found' out.txt) -eq 0 ]]
+
+    ANSIBLE_ROLES_PATH=${HOME}/.ansible/roles:./local-roles ansible-galaxy role list quark | tee out.txt
+
+    [[ $(grep -c 'not found' out.txt) -eq 0 ]]
+
+popd # ${role_testdir}
+rm -fr "${role_testdir}"
+
+
+# Galaxy role info tests
+
+f_ansible_galaxy_status \
+    "role info non-existant role"
+
+role_testdir=$(mktemp -d)
+pushd "${role_testdir}"
+
+    ansible-galaxy role info notaroll | tee out.txt
+
+    grep -- '- the role notaroll was not found' out.txt
+
+f_ansible_galaxy_status \
+    "role info description offline"
+
+    mkdir testroles
+    ansible-galaxy role init testdesc --init-path ./testroles
+
+    # Only galaxy_info['description'] exists in file
+    sed -i -e 's#[[:space:]]\{1,\}description:.*$#  description: Description in galaxy_info#' ./testroles/testdesc/meta/main.yml
+    ansible-galaxy role info -p ./testroles --offline testdesc | tee out.txt
+    grep 'description: Description in galaxy_info' out.txt
+
+    # Both top level 'description' and galaxy_info['description'] exist in file
+    # Use shell-fu instead of sed to prepend a line to a file because BSD
+    # and macOS sed don't work the same as GNU sed.
+    echo 'description: Top level' | \
+        cat - ./testroles/testdesc/meta/main.yml > tmp.yml && \
+        mv tmp.yml ./testroles/testdesc/meta/main.yml
+    ansible-galaxy role info -p ./testroles --offline testdesc | tee out.txt
+    grep 'description: Top level' out.txt
+
+    # Only top level 'description' exists in file
+    sed -i.bak '/^[[:space:]]\{1,\}description: Description in galaxy_info/d' ./testroles/testdesc/meta/main.yml
+    ansible-galaxy role info -p ./testroles --offline testdesc | tee out.txt
+    grep 'description: Top level' out.txt
+
+popd # ${role_testdir}
+rm -fr "${role_testdir}"
+
 
 # Properly list roles when the role name is a subset of the path, or the role
 # name is the same name as the parent directory of the role. Issue #67365
@@ -151,103 +216,10 @@ rm -rf "${role_testdir}"
 #################################
 # ansible-galaxy collection tests
 #################################
+# TODO: Move these to ansible-galaxy-collection
 
-f_ansible_galaxy_status \
-    "collection init tests to make sure the relative dir logic works"
 galaxy_testdir=$(mktemp -d)
 pushd "${galaxy_testdir}"
-
-    ansible-galaxy collection init ansible_test.my_collection "$@"
-
-    # Test that the collection skeleton was created in the expected directory
-    for galaxy_collection_dir in "docs" "plugins" "roles"
-    do
-        [[ -d "${galaxy_testdir}/ansible_test/my_collection/${galaxy_collection_dir}" ]]
-    done
-
-popd # ${galaxy_testdir}
-rm -fr "${galaxy_testdir}"
-
-f_ansible_galaxy_status \
-    "collection init tests to make sure the --init-path logic works"
-galaxy_testdir=$(mktemp -d)
-pushd "${galaxy_testdir}"
-
-    ansible-galaxy collection init ansible_test.my_collection --init-path "${galaxy_testdir}/test" "$@"
-
-    # Test that the collection skeleton was created in the expected directory
-    for galaxy_collection_dir in "docs" "plugins" "roles"
-    do
-        [[ -d "${galaxy_testdir}/test/ansible_test/my_collection/${galaxy_collection_dir}" ]]
-    done
-
-popd # ${galaxy_testdir}
-
-f_ansible_galaxy_status \
-    "collection build test creating artifact in current directory"
-
-pushd "${galaxy_testdir}/test/ansible_test/my_collection"
-
-    ansible-galaxy collection build "$@"
-
-    [[ -f "${galaxy_testdir}/test/ansible_test/my_collection/ansible_test-my_collection-1.0.0.tar.gz" ]]
-
-popd # ${galaxy_testdir}/ansible_test/my_collection
-
-f_ansible_galaxy_status \
-    "collection build test to make sure we can specify a relative path"
-
-pushd "${galaxy_testdir}"
-
-    ansible-galaxy collection build "test/ansible_test/my_collection" "$@"
-
-    [[ -f "${galaxy_testdir}/ansible_test-my_collection-1.0.0.tar.gz" ]]
-
-    # Make sure --force works
-    ansible-galaxy collection build "test/ansible_test/my_collection" --force "$@"
-
-    [[ -f "${galaxy_testdir}/ansible_test-my_collection-1.0.0.tar.gz" ]]
-
-f_ansible_galaxy_status \
-    "collection install from local tarball test"
-
-    ansible-galaxy collection install "ansible_test-my_collection-1.0.0.tar.gz" -p ./install "$@" | tee out.txt
-
-    [[ -f "${galaxy_testdir}/install/ansible_collections/ansible_test/my_collection/MANIFEST.json" ]]
-    grep "Installing 'ansible_test.my_collection:1.0.0' to .*" out.txt
-
-
-f_ansible_galaxy_status \
-    "collection install with existing collection and without --force"
-
-    ansible-galaxy collection install "ansible_test-my_collection-1.0.0.tar.gz" -p ./install "$@" | tee out.txt
-
-    [[ -f "${galaxy_testdir}/install/ansible_collections/ansible_test/my_collection/MANIFEST.json" ]]
-    grep "Skipping 'ansible_test.my_collection' as it is already installed" out.txt
-
-f_ansible_galaxy_status \
-    "collection install with existing collection and with --force"
-
-    ansible-galaxy collection install "ansible_test-my_collection-1.0.0.tar.gz" -p ./install --force "$@" | tee out.txt
-
-    [[ -f "${galaxy_testdir}/install/ansible_collections/ansible_test/my_collection/MANIFEST.json" ]]
-    grep "Installing 'ansible_test.my_collection:1.0.0' to .*" out.txt
-
-f_ansible_galaxy_status \
-    "ansible-galaxy with a sever list with an undefined URL"
-
-    ANSIBLE_GALAXY_SERVER_LIST=undefined  ansible-galaxy collection install "ansible_test-my_collection-1.0.0.tar.gz" -p ./install --force "$@" 2>&1 | tee out.txt || echo "expected failure"
-
-    grep "No setting was provided for required configuration plugin_type: galaxy_server plugin: undefined setting: url" out.txt
-
-f_ansible_galaxy_status \
-    "ansible-galaxy with an empty server list"
-
-    ANSIBLE_GALAXY_SERVER_LIST='' ansible-galaxy collection install "ansible_test-my_collection-1.0.0.tar.gz" -p ./install --force "$@" | tee out.txt
-
-    [[ -f "${galaxy_testdir}/install/ansible_collections/ansible_test/my_collection/MANIFEST.json" ]]
-    grep "Installing 'ansible_test.my_collection:1.0.0' to .*" out.txt
-
 
 ## ansible-galaxy collection list tests
 
